@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',     # Added Django REST Framework
+    'api.apps.ApiConfig', # Added fitness API app
 ]
 
 MIDDLEWARE = [
