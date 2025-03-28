@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'rest_framework',     # Added Django REST Framework
     'api.apps.ApiConfig', # Added fitness API app
     'corsheaders',        # Added CORS headers app
+    'rest_framework_simplejwt', # Added Simple JWT
 ]
 
 MIDDLEWARE = [
@@ -118,6 +119,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated', # Default to requiring authentication
+    )
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
