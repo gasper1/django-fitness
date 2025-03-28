@@ -130,6 +130,15 @@ REST_FRAMEWORK = {
     )
 }
 
+# Simple JWT settings
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Extend access token lifetime to 1 hour
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Set refresh token lifetime to 7 days
+    'ROTATE_REFRESH_TOKENS': True,  # Get a new refresh token when refreshing access tokens
+    'BLACKLIST_AFTER_ROTATION': False,  # Don't blacklist old refresh tokens
+}
+
 # Internationalization
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 
