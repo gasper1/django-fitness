@@ -33,7 +33,10 @@ ALLOWED_HOSTS = ["*"]
 
 # FORM SUBMISSION
 # Comment out the following line and place your railway URL, and your production URL in the array.
-CSRF_TRUSTED_ORIGINS = ["https://django-server-production-6678.up.railway.app"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://django-server-production-6678.up.railway.app",
+    "https://vite-react-fitness.vercel.app"
+    ]
 
 # Application definition
 
@@ -144,7 +147,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",    # Vite dev server default
     "http://127.0.0.1:5173",   # Vite dev server default
-    # Add your production frontend URL here if applicable
+    "https://vite-react-fitness.vercel.app"
 ]
 
 # Optional: If you need to allow credentials (cookies, auth headers)
