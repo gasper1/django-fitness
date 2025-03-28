@@ -46,10 +46,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',     # Added Django REST Framework
     'api.apps.ApiConfig', # Added fitness API app
+    'corsheaders',        # Added CORS headers app
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Added CORS middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -137,3 +139,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",    # Vite dev server default
+    "http://127.0.0.1:5173",   # Vite dev server default
+    # Add your production frontend URL here if applicable
+]
+
+# Optional: If you need to allow credentials (cookies, auth headers)
+# CORS_ALLOW_CREDENTIALS = True
+
+# Optional: If you need to allow specific headers or methods beyond defaults
+# CORS_ALLOW_HEADERS = [...]
+# CORS_ALLOW_METHODS = [...]
