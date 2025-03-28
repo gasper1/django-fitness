@@ -62,4 +62,18 @@ class Exercise(models.Model):
         verbose_name = "Exercise"
         verbose_name_plural = "Exercises"
 
+
+class Routine(models.Model):
+    """Represents a workout routine, which is a collection of exercises."""
+    name = models.CharField(max_length=100, unique=True, help_text="Name of the routine")
+    exercises = models.ManyToManyField(Exercise, related_name='routines', help_text="Exercises included in this routine")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Routine"
+        verbose_name_plural = "Routines"
+
 # Create your models here.
