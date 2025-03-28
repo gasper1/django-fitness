@@ -18,6 +18,7 @@ class Exercise(models.Model):
         ('Bodyweight', 'Bodyweight'),
         ('Kettlebell', 'Kettlebell'),
         ('Resistance Band', 'Resistance Band'),
+        ('Run', 'Running'),
         ('Other', 'Other'),
         # Add more types as needed
     ]
@@ -26,8 +27,7 @@ class Exercise(models.Model):
         ('Chest', 'Chest'),
         ('Back', 'Back'),
         ('Shoulders', 'Shoulders'),
-        ('Biceps', 'Biceps'),
-        ('Triceps', 'Triceps'),
+        ('Arms', 'Arms'),
         ('Legs', 'Legs'),
         ('Abs', 'Abdominals'),
         ('Full Body', 'Full Body'),
@@ -43,6 +43,8 @@ class Exercise(models.Model):
         ('Hamstrings', 'Hamstrings'),
         ('Calves', 'Calves'),
         ('Glutes', 'Glutes'),
+        ('Biceps', 'Biceps'),
+        ('Triceps', 'Triceps'),
         # Add more sub-groups as needed
     ]
 
