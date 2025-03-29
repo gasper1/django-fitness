@@ -27,9 +27,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-rc^*w^w&6g9_(uvx#6s*bnt!w)l0rdi%!l7mv#y%uc&x%wo5pk'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DEBUG to False in production. Use environment variable or other mechanism
+# to differentiate between environments if needed. For now, setting to False.
+DEBUG = False # IMPORTANT: Set to False for production
 
-ALLOWED_HOSTS = ["*"]
+# Restrict allowed hosts to your production domains
+ALLOWED_HOSTS = [
+    "django-server-production-6678.up.railway.app", # Your Railway app domain
+    "localhost",
+    # Add any other domains if necessary (e.g., custom domain)
+    ]
 
 # FORM SUBMISSION
 # Comment out the following line and place your railway URL, and your production URL in the array.
