@@ -35,6 +35,7 @@ DEBUG = False # IMPORTANT: Set to False for production
 ALLOWED_HOSTS = [
     "django-server-production-6678.up.railway.app", # Your Railway app domain
     "localhost",
+    "127.0.0.1"
     # Add any other domains if necessary (e.g., custom domain)
     ]
 
@@ -174,3 +175,25 @@ CORS_ALLOWED_ORIGINS = [
 # Optional: If you need to allow specific headers or methods beyond defaults
 # CORS_ALLOW_HEADERS = [...]
 # CORS_ALLOW_METHODS = [...]
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'ERROR',  # At minimum capture errors
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
