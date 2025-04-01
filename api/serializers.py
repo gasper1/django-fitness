@@ -35,9 +35,10 @@ class RoutineSerializer(serializers.ModelSerializer):
 
 class RoutinePlanSerializer(serializers.ModelSerializer):
     """Serializer for the RoutinePlan model."""
-    # Display routine name for readability, but use ID for writing
+    # Display routine name for readability
     routine_name = serializers.CharField(source='routine.name', read_only=True)
-    routine = serializers.PrimaryKeyRelatedField(queryset=Routine.objects.all(), write_only=True)
+    # Use ID for writing AND include it in reading
+    routine = serializers.PrimaryKeyRelatedField(queryset=Routine.objects.all()) # Removed write_only=True
     # User is set automatically based on the request user, so it's read-only here
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
