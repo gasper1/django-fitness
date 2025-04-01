@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 class Exercise(models.Model):
     """Represents a single exercise."""
@@ -76,4 +77,19 @@ class Routine(models.Model):
         verbose_name = "Routine"
         verbose_name_plural = "Routines"
 
-# Create your models here.
+
+class RoutinePlan(models.Model):
+    """Model definition for RoutinePlan."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    routine = models.ForeignKey(Routine, on_delete=models.CASCADE)
+    date = models.DateField()
+
+    class Meta:
+        # Ensure a user can only plan one routine per day
+        unique_together = ('user', 'date')
+        ordering = ['date']
+        verbose_name = "Routine Plan"
+        verbose_name_plural = "Routine Plans"
+
+    def __str__(self):
+        return f"{self.user.username}'s plan for {self.date}: {self.routine.name}"
