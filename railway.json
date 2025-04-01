@@ -4,6 +4,8 @@
         "builder": "RAILPACK"
     },
     "deploy": {
-        "startCommand": "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn mysite.wsgi"
+        "startCommand": "sleep 3 && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn mysite.wsgi",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
     }
 }
