@@ -3,16 +3,15 @@ from rest_framework.response import Response
 from .models import Exercise, Routine, RoutinePlan, ExerciseLog
 from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer
 
-class ExerciseListCreate(generics.ListCreateAPIView):
+# Replaced ExerciseListCreate with ExerciseViewSet
+class ExerciseViewSet(viewsets.ModelViewSet):
     """
-    API view to retrieve list of exercises or create a new exercise.
-    * Requires token authentication.
-    * All users can access this view.
+    API endpoint that allows exercises to be viewed or edited.
+    Provides list, create, retrieve, update, partial_update, destroy actions.
     """
-    queryset = Exercise.objects.all()
+    queryset = Exercise.objects.all().order_by('name') # Keep ordering consistent
     serializer_class = ExerciseSerializer
-    # Add permission classes if needed, e.g.:
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly] # Keep same permissions
 
 
 class RoutineViewSet(viewsets.ModelViewSet):

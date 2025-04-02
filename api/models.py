@@ -54,6 +54,7 @@ class Exercise(models.Model):
     type = models.CharField(max_length=50, choices=TYPE_CHOICES, help_text="Type of equipment or method used")
     muscle_group = models.CharField(max_length=50, choices=MUSCLE_GROUP_CHOICES, help_text="Main muscle group targeted")
     sub_group = models.CharField(max_length=50, choices=SUB_GROUP_CHOICES, blank=True, null=True, help_text="Specific sub-muscle group targeted (optional)")
+    training_points = models.PositiveIntegerField(default=1, help_text="Points assigned to this exercise for training load calculation")
 
     def __str__(self):
         return self.name
