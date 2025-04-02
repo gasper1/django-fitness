@@ -93,3 +93,22 @@ class RoutinePlan(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s plan for {self.date}: {self.routine.name}"
+
+
+class ExerciseLog(models.Model):
+    """Represents a log entry for a specific exercise performed on a specific date."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE)
+    date = models.DateField()
+    completed = models.BooleanField(default=False, help_text="Indicates if the exercise was completed on this date")
+
+    class Meta:
+        # Ensure only one log entry per user, exercise, and date
+        unique_together = ('user', 'exercise', 'date')
+        ordering = ['date', 'exercise__name']
+        verbose_name = "Exercise Log"
+        verbose_name_plural = "Exercise Logs"
+
+    def __str__(self):
+        status = "Completed" if self.completed else "Not Completed"
+        return f"{self.user.username} - {self.exercise.name} on {self.date}: {status}"

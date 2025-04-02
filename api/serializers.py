@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Exercise, Routine, RoutinePlan
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog
 
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for the Exercise model."""
@@ -51,3 +51,39 @@ class RoutinePlanSerializer(serializers.ModelSerializer):
         # Automatically set the user to the request user
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class ExerciseLogSerializer(serializers.ModelSerializer):
+    """Serializer for the ExerciseLog model."""
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    exercise = serializers.PrimaryKeyRelatedField(queryset=Exercise.objects.all())
+    exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+
+    class Meta:
+        model = ExerciseLog
+        fields = ['id', 'user', 'exercise', 'exercise_name', 'date', 'completed']
+        read_only_fields = ['id', 'user', 'exercise_name']
+
+    def create(self, validated_data):
+        # Automatically set the user to the request user
+        validated_data['user'] = self.context['request'].user
+        # Use get_or_create to handle the unique_together constraint gracefully
+        # This allows for updating the 'completed' status if an entry already exists
+        instance, created = ExerciseLog.objects.get_or_create(
+            user=validated_data['user'],
+            exercise=validated_data['exercise'],
+            date=validated_data['date'],
+            defaults={'completed': validated_data.get('completed', False)}
+        )
+        # If the instance was not created (it already existed), update 'completed' status
+        if not created:
+            instance.completed = validated_data.get('completed', instance.completed)
+            instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        # Standard update logic, but user, exercise, and date shouldn't change
+        # Only 'completed' status should be updatable via PUT/PATCH
+        instance.completed = validated_data.get('completed', instance.completed)
+        instance.save()
+        return instance
