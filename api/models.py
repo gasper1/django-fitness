@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator
 
 class Exercise(models.Model):
     """Represents a single exercise."""
@@ -113,3 +114,25 @@ class ExerciseLog(models.Model):
     def __str__(self):
         status = "Completed" if self.completed else "Not Completed"
         return f"{self.user.username} - {self.exercise.name} on {self.date}: {status}"
+
+
+class TopDownWeeklyTarget(models.Model):
+    """Represents the user's top-down weekly training point target."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    year = models.PositiveIntegerField(help_text="The year for which the target is set")
+    week = models.PositiveIntegerField(help_text="The week number (ISO 8601) for which the target is set")
+    target_points = models.PositiveIntegerField(
+        default=50,
+        validators=[MinValueValidator(0)],
+        help_text="The target training points for the week"
+    )
+
+    class Meta:
+        # Ensure only one target per user, year, and week
+        unique_together = ('user', 'year', 'week')
+        ordering = ['year', 'week']
+        verbose_name = "Top-Down Weekly Target"
+        verbose_name_plural = "Top-Down Weekly Targets"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.year}W{self.week:02d}: {self.target_points} points"

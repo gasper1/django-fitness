@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Exercise, Routine, RoutinePlan, ExerciseLog
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
 
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for the Exercise model."""
@@ -85,5 +85,34 @@ class ExerciseLogSerializer(serializers.ModelSerializer):
         # Standard update logic, but user, exercise, and date shouldn't change
         # Only 'completed' status should be updatable via PUT/PATCH
         instance.completed = validated_data.get('completed', instance.completed)
+        instance.save()
+        return instance
+
+
+class TopDownWeeklyTargetSerializer(serializers.ModelSerializer):
+    """Serializer for the TopDownWeeklyTarget model."""
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = TopDownWeeklyTarget
+        fields = ['id', 'user', 'year', 'week', 'target_points']
+        read_only_fields = ['id', 'user']
+
+    def create(self, validated_data):
+        # Automatically set the user to the request user
+        validated_data['user'] = self.context['request'].user
+        # Use update_or_create to handle the unique_together constraint gracefully
+        # This allows creating or updating the target for a given user, year, and week
+        instance, created = TopDownWeeklyTarget.objects.update_or_create(
+            user=validated_data['user'],
+            year=validated_data['year'],
+            week=validated_data['week'],
+            defaults={'target_points': validated_data.get('target_points', 50)} # Use default if not provided
+        )
+        return instance
+
+    def update(self, instance, validated_data):
+        # Only 'target_points' should be updatable via PUT/PATCH
+        instance.target_points = validated_data.get('target_points', instance.target_points)
         instance.save()
         return instance
