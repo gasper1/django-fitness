@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User # Import the User model
 from rest_framework import serializers
 from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
 
@@ -116,3 +117,24 @@ class TopDownWeeklyTargetSerializer(serializers.ModelSerializer):
         instance.target_points = validated_data.get('target_points', instance.target_points)
         instance.save()
         return instance
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """Serializer for the User model, used for registration."""
+    password = serializers.CharField(write_only=True) # Password should not be read
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'password', 'email', 'first_name', 'last_name') # Include fields you want for registration
+        extra_kwargs = {'password': {'write_only': True}} # Ensure password is write-only
+
+    def create(self, validated_data):
+        # Create the user instance using the create_user method to handle password hashing
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', ''), # Optional email
+            first_name=validated_data.get('first_name', ''), # Optional first name
+            last_name=validated_data.get('last_name', '') # Optional last name
+        )
+        return user

@@ -1,11 +1,23 @@
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.contrib.auth.models import User # Import User model
 from django.db.models import Sum
 from django.utils.timezone import now
 from datetime import datetime, timedelta
 from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
-from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
+# Import UserSerializer
+from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer, UserSerializer
+
+# View for User Registration
+class RegisterView(generics.CreateAPIView):
+    """
+    API endpoint that allows new users to be registered.
+    """
+    queryset = User.objects.all()
+    permission_classes = (permissions.AllowAny,) # Allow anyone to register
+    serializer_class = UserSerializer
+
 
 # Replaced ExerciseListCreate with ExerciseViewSet
 class ExerciseViewSet(viewsets.ModelViewSet):
