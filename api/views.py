@@ -262,12 +262,17 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
         current_date = now().date()
 
         # Calculate stats for each week going back
+        # Calculate stats for the current week and previous weeks
         weekly_stats = []
 
+        # Loop from 0 (current week) up to weeks_back-1 (e.g., 0 to 5 for weeks_back=6)
         for i in range(weeks_back):
-            # Calculate the start and end dates for this week
-            week_end = current_date - timedelta(days=current_date.weekday() + 7*i)
-            week_start = week_end - timedelta(days=6)
+            # Calculate a date within the target week (i weeks ago)
+            target_date_in_week = current_date - timedelta(weeks=i)
+            # Calculate the start of that week (Monday, assuming weekday() is 0 for Monday)
+            week_start = target_date_in_week - timedelta(days=target_date_in_week.weekday())
+            # Calculate the end of that week (Sunday)
+            week_end = week_start + timedelta(days=6)
 
             # ISO week data for target lookup
             iso_year = week_start.isocalendar()[0]
@@ -285,15 +290,18 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
                 target_points = 50  # Default
 
             # Get planned points for this week
+            # Get planned points for this week - Added prefetch_related
             routine_plans = RoutinePlan.objects.filter(
                 user=user,
                 date__range=[week_start, week_end]
-            ).select_related('routine')
+            ).select_related('routine').prefetch_related('routine__exercises')
 
             planned_points = 0
             for plan in routine_plans:
-                exercises = plan.routine.exercises.all()
-                planned_points += sum(e.training_points for e in exercises)
+                # Access prefetched exercises
+                exercises = plan.routine.exercises.all() # .all() is okay on prefetched manager
+                # Ensure training_points is not None before summing
+                planned_points += sum(e.training_points for e in exercises if e.training_points is not None)
 
             # Get completed points for this week
             completed_logs = ExerciseLog.objects.filter(
@@ -302,7 +310,8 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
                 completed=True
             ).select_related('exercise')
 
-            completed_points = sum(log.exercise.training_points for log in completed_logs)
+            # Ensure training_points is not None before summing
+            completed_points = sum(log.exercise.training_points for log in completed_logs if log.exercise and log.exercise.training_points is not None)
 
             # Calculate achievement percentage
             achievement_percentage = round((completed_points / target_points * 100) if target_points > 0 else 0)
