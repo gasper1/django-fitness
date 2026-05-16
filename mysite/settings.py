@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-rc^*w^w&6g9_(uvx#6s*bnt!w)l0rdi%!l7mv#y%uc&x%wo5pk
 # SECURITY WARNING: don't run with debug turned on in production!
 # Set DEBUG to False in production. Use environment variable or other mechanism
 # to differentiate between environments if needed. For now, setting to False.
-DEBUG = False # IMPORTANT: Set to False for production
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # Restrict allowed hosts to your production domains
 ALLOWED_HOSTS = [

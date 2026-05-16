@@ -1,7 +1,9 @@
 from rest_framework import generics, viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
 from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
+from datetime import date, timedelta
 
 # Replaced ExerciseListCreate with ExerciseViewSet
 class ExerciseViewSet(viewsets.ModelViewSet):
@@ -147,3 +149,116 @@ class TopDownWeeklyTargetViewSet(viewsets.ModelViewSet):
         # Ensure users can only update their own targets.
         # The get_queryset method already filters by user, so direct updates are safe.
         serializer.save()
+
+
+class WeeklyStatsViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def historical_stats(self, request):
+        weeks_back = int(request.query_params.get('weeks_back', 6))
+        user = request.user
+
+        today = date.today()
+        current_week_start = today - timedelta(days=today.weekday())
+
+        result = []
+        for i in range(weeks_back - 1, -1, -1):
+            week_start = current_week_start - timedelta(weeks=i)
+            week_end = week_start + timedelta(days=6)
+            iso = week_start.isocalendar()
+            year, week_num = iso[0], iso[1]
+
+            try:
+                target_obj = TopDownWeeklyTarget.objects.get(user=user, year=year, week=week_num)
+                weekly_target = target_obj.target_points
+            except TopDownWeeklyTarget.DoesNotExist:
+                weekly_target = 0
+
+            plans = RoutinePlan.objects.filter(
+                user=user, date__range=[week_start, week_end]
+            ).prefetch_related('routine__exercises')
+            planned_points = sum(
+                ex.training_points
+                for plan in plans
+                for ex in plan.routine.exercises.all()
+            )
+
+            logs = ExerciseLog.objects.filter(
+                user=user, date__range=[week_start, week_end], completed=True
+            ).select_related('exercise')
+            completed_points = sum(log.exercise.training_points for log in logs)
+
+            achievement = round(completed_points / weekly_target * 100, 1) if weekly_target > 0 else 0
+
+            result.append({
+                'week': f"W{week_num:02d} {year}",
+                'planned': planned_points,
+                'completed': completed_points,
+                'weeklyTarget': weekly_target,
+                'achievementPercentage': achievement,
+            })
+
+        return Response(result)
+
+    @action(detail=False, methods=['get'])
+    def kpi_summary(self, request):
+        user = request.user
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+
+        if not start_date_str or not end_date_str:
+            return Response({'error': 'start_date and end_date are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        start_date = date.fromisoformat(start_date_str)
+        end_date = date.fromisoformat(end_date_str)
+        iso = start_date.isocalendar()
+        year, week_num = iso[0], iso[1]
+
+        try:
+            target_obj = TopDownWeeklyTarget.objects.get(user=user, year=year, week=week_num)
+            weekly_target = target_obj.target_points
+        except TopDownWeeklyTarget.DoesNotExist:
+            weekly_target = 0
+
+        plans = RoutinePlan.objects.filter(
+            user=user, date__range=[start_date, end_date]
+        ).prefetch_related('routine__exercises')
+        logs = ExerciseLog.objects.filter(
+            user=user, date__range=[start_date, end_date]
+        ).select_related('exercise')
+
+        daily_metrics = {}
+        current = start_date
+        while current <= end_date:
+            date_str = current.isoformat()
+            day_planned = sum(
+                ex.training_points
+                for p in plans if p.date == current
+                for ex in p.routine.exercises.all()
+            )
+            day_completed = sum(
+                l.exercise.training_points for l in logs
+                if l.date == current and l.completed
+            )
+            day_achievement = round(day_completed / day_planned * 100, 1) if day_planned > 0 else 0
+            daily_metrics[date_str] = {
+                'planned_points': day_planned,
+                'completed_points': day_completed,
+                'achievement_percentage': day_achievement,
+            }
+            current += timedelta(days=1)
+
+        total_planned = sum(m['planned_points'] for m in daily_metrics.values())
+        total_completed = sum(m['completed_points'] for m in daily_metrics.values())
+        planning_achievement = round(total_planned / weekly_target * 100, 1) if weekly_target > 0 else 0
+        training_achievement = round(total_completed / total_planned * 100, 1) if total_planned > 0 else 0
+
+        return Response({
+            'weekly_target': weekly_target,
+            'planned_points': total_planned,
+            'completed_points': total_completed,
+            'planning_achievement': planning_achievement,
+            'training_achievement': training_achievement,
+            'daily_metrics': daily_metrics,
+        })
