@@ -157,10 +157,11 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def historical_stats(self, request):
         weeks_back = int(request.query_params.get('weeks_back', 6))
+        offset = int(request.query_params.get('offset', 0))
         user = request.user
 
         today = date.today()
-        current_week_start = today - timedelta(days=today.weekday())
+        current_week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=offset)
 
         result = []
         for i in range(weeks_back - 1, -1, -1):
