@@ -1,9 +1,13 @@
+import anthropic
+import json
+import os
+from datetime import date, datetime, timedelta
+
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget, WeeklyAnalysis
 from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
-from datetime import date, timedelta
 
 # Replaced ExerciseListCreate with ExerciseViewSet
 class ExerciseViewSet(viewsets.ModelViewSet):
@@ -263,3 +267,189 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
             'training_achievement': training_achievement,
             'daily_metrics': daily_metrics,
         })
+
+    @action(detail=False, methods=['get', 'post'])
+    def analysis(self, request):
+        user = request.user
+        today = date.today()
+        iso = today.isocalendar()
+        year = int(request.query_params.get('year', iso[0]))
+        week = int(request.query_params.get('week', iso[1]))
+
+        if request.method == 'GET':
+            try:
+                cached = WeeklyAnalysis.objects.get(user=user, year=year, week=week)
+                return Response({
+                    'content': cached.content,
+                    'generated_at': cached.generated_at.isoformat(),
+                    'cached': True,
+                })
+            except WeeklyAnalysis.DoesNotExist:
+                return Response({'content': None, 'cached': False})
+
+        # POST: generate (or regenerate)
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return Response(
+                {'error': 'ANTHROPIC_API_KEY not configured on server'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        week_data = _build_week_data(user, year, week)
+        prompt = _build_analysis_prompt(week_data)
+
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
+            message = client.messages.create(
+                model='claude-sonnet-4-6',
+                max_tokens=1024,
+                messages=[{'role': 'user', 'content': prompt}],
+            )
+            raw = message.content[0].text.strip()
+            if raw.startswith('```'):
+                raw = raw.split('```')[1]
+                if raw.startswith('json'):
+                    raw = raw[4:]
+            content = json.loads(raw.strip())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        obj, _ = WeeklyAnalysis.objects.update_or_create(
+            user=user, year=year, week=week,
+            defaults={'content': content},
+        )
+
+        return Response({
+            'content': content,
+            'generated_at': obj.generated_at.isoformat(),
+            'cached': False,
+        })
+
+
+def _build_week_data(user, year, week):
+    week_start = datetime.fromisocalendar(year, week, 1).date()
+    week_end = week_start + timedelta(days=6)
+
+    try:
+        target_obj = TopDownWeeklyTarget.objects.get(user=user, year=year, week=week)
+        weekly_target = target_obj.target_points
+    except TopDownWeeklyTarget.DoesNotExist:
+        weekly_target = 0
+
+    plans = RoutinePlan.objects.filter(
+        user=user, date__range=[week_start, week_end]
+    ).prefetch_related('routine__exercises').order_by('date')
+
+    logs = ExerciseLog.objects.filter(
+        user=user, date__range=[week_start, week_end]
+    ).select_related('exercise').order_by('date')
+
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    days = []
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        day_plans = [p for p in plans if p.date == day]
+        day_logs = [l for l in logs if l.date == day]
+
+        exercises = []
+        if day_plans:
+            for p in day_plans:
+                for ex in p.routine.exercises.all():
+                    exercises.append({
+                        'name': ex.name,
+                        'type': ex.type,
+                        'muscle_group': ex.muscle_group,
+                        'training_points': ex.training_points,
+                    })
+
+        day_planned = sum(e['training_points'] for e in exercises)
+        day_completed = sum(l.exercise.training_points for l in day_logs if l.completed)
+
+        days.append({
+            'day': day_names[i],
+            'date': day.strftime('%a %b %d'),
+            'routine': day_plans[0].routine.name if day_plans else None,
+            'planned_points': day_planned,
+            'completed_points': day_completed,
+            'exercises': exercises,
+        })
+
+    history = []
+    for offset in range(4, 0, -1):
+        h_start = week_start - timedelta(weeks=offset)
+        h_end = h_start + timedelta(days=6)
+        h_iso = h_start.isocalendar()
+        h_year, h_week = h_iso[0], h_iso[1]
+        try:
+            h_target = TopDownWeeklyTarget.objects.get(user=user, year=h_year, week=h_week)
+            h_target_pts = h_target.target_points
+        except TopDownWeeklyTarget.DoesNotExist:
+            h_target_pts = 0
+        h_logs = ExerciseLog.objects.filter(
+            user=user, date__range=[h_start, h_end], completed=True
+        ).select_related('exercise')
+        h_completed = sum(l.exercise.training_points for l in h_logs)
+        history.append({
+            'week': f"W{h_week:02d} {h_year}",
+            'completed': h_completed,
+            'target': h_target_pts,
+            'pct': round(h_completed / h_target_pts * 100, 1) if h_target_pts > 0 else 0,
+        })
+
+    total_planned = sum(d['planned_points'] for d in days)
+    total_completed = sum(d['completed_points'] for d in days)
+
+    return {
+        'week_label': f"W{week:02d} {year}",
+        'week_range': f"{week_start.strftime('%a %b %d')} – {week_end.strftime('%a %b %d %Y')}",
+        'weekly_target': weekly_target,
+        'total_planned': total_planned,
+        'total_completed': total_completed,
+        'planning_pct': round(total_planned / weekly_target * 100, 1) if weekly_target > 0 else 0,
+        'achievement_pct': round(total_completed / weekly_target * 100, 1) if weekly_target > 0 else 0,
+        'days': days,
+        'history': history,
+    }
+
+
+def _build_analysis_prompt(data):
+    day_lines = []
+    for d in data['days']:
+        if d['routine']:
+            exs = ', '.join(
+                f"{e['name']} ({e['muscle_group']}, {e['training_points']}pts)"
+                for e in d['exercises']
+            )
+            day_lines.append(
+                f"  {d['day']} {d['date']}: {d['routine']} — planned {d['planned_points']}pts, "
+                f"completed {d['completed_points']}pts\n    Exercises: {exs}"
+            )
+        else:
+            day_lines.append(f"  {d['day']} {d['date']}: — (rest/unplanned)")
+
+    history_lines = [
+        f"  {h['week']}: {h['completed']}/{h['target']} pts ({h['pct']}% of target)"
+        for h in data['history']
+    ]
+
+    return f"""You are a personal fitness coach. Analyze this weekly training data and provide structured feedback.
+
+WEEK: {data['week_label']} ({data['week_range']})
+TARGET: {data['weekly_target']} training points
+PLANNED: {data['total_planned']} pts ({data['planning_pct']}% of target)
+COMPLETED: {data['total_completed']} pts ({data['achievement_pct']}% of target)
+
+DAILY BREAKDOWN:
+{chr(10).join(day_lines)}
+
+RECENT HISTORY (last 4 weeks):
+{chr(10).join(history_lines)}
+
+Return ONLY a valid JSON object — no markdown, no code blocks, just raw JSON:
+{{
+  "summary": "1-2 sentence overview of the week",
+  "observations": ["specific data-driven observation", "another observation", "a third observation"],
+  "suggestions": ["actionable suggestion", "another suggestion"]
+}}
+
+Be specific: reference exercise names, point counts, recovery gaps, muscle group balance, and historical trends."""

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget, WeeklyAnalysis
 
 
 @admin.register(Exercise)
@@ -34,3 +34,10 @@ class ExerciseLogAdmin(admin.ModelAdmin):
 class TopDownWeeklyTargetAdmin(admin.ModelAdmin):
     list_display = ('user', 'year', 'week', 'target_points')
     list_filter = ('user', 'year')
+
+
+@admin.register(WeeklyAnalysis)
+class WeeklyAnalysisAdmin(admin.ModelAdmin):
+    list_display = ('user', 'year', 'week', 'generated_at')
+    list_filter = ('user', 'year')
+    readonly_fields = ('generated_at',)

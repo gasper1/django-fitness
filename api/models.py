@@ -136,3 +136,21 @@ class TopDownWeeklyTarget(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.year}W{self.week:02d}: {self.target_points} points"
+
+
+class WeeklyAnalysis(models.Model):
+    """Stores AI-generated training analysis for a given user/week, cached to avoid repeated API calls."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    year = models.PositiveIntegerField()
+    week = models.PositiveIntegerField(help_text="ISO 8601 week number")
+    content = models.JSONField(help_text="Structured analysis: summary, observations, suggestions")
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'year', 'week')
+        ordering = ['-year', '-week']
+        verbose_name = "Weekly Analysis"
+        verbose_name_plural = "Weekly Analyses"
+
+    def __str__(self):
+        return f"{self.user.username} - W{self.week:02d} {self.year}"
