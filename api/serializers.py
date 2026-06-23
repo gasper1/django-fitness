@@ -35,17 +35,15 @@ class RoutineSerializer(serializers.ModelSerializer):
 
 class RoutinePlanSerializer(serializers.ModelSerializer):
     """Serializer for the RoutinePlan model."""
-    # Display routine name for readability
     routine_name = serializers.CharField(source='routine.name', read_only=True)
-    # Use ID for writing AND include it in reading
-    routine = serializers.PrimaryKeyRelatedField(queryset=Routine.objects.all()) # Removed write_only=True
-    # User is set automatically based on the request user, so it's read-only here
+    routine = serializers.PrimaryKeyRelatedField(queryset=Routine.objects.all())
     user = serializers.PrimaryKeyRelatedField(read_only=True)
+    exercises_details = ExerciseSerializer(many=True, read_only=True, source='routine.exercises')
 
     class Meta:
         model = RoutinePlan
-        fields = ['id', 'user', 'routine', 'routine_name', 'date']
-        read_only_fields = ['id', 'user', 'routine_name']
+        fields = ['id', 'user', 'routine', 'routine_name', 'exercises_details', 'date']
+        read_only_fields = ['id', 'user', 'routine_name', 'exercises_details']
 
     def create(self, validated_data):
         # Automatically set the user to the request user

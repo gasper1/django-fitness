@@ -46,7 +46,7 @@ class RoutinePlanViewSet(viewsets.ModelViewSet):
         for the currently authenticated user, optionally filtered by date range.
         """
         user = self.request.user
-        queryset = RoutinePlan.objects.filter(user=user).select_related('routine')
+        queryset = RoutinePlan.objects.filter(user=user).select_related('routine').prefetch_related('routine__exercises')
 
         # Get date range parameters from the request query string
         start_date = self.request.query_params.get('start_date', None)
@@ -166,6 +166,24 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
 
         today = date.today()
         current_week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=offset)
+        earliest_week_start = current_week_start - timedelta(weeks=weeks_back - 1)
+        range_end = current_week_start + timedelta(days=6)
+
+        # 3 bulk queries for the entire date range instead of 3×weeks_back sequential queries
+        all_targets = {
+            (t.year, t.week): t.target_points
+            for t in TopDownWeeklyTarget.objects.filter(user=user)
+        }
+        all_plans = list(
+            RoutinePlan.objects.filter(
+                user=user, date__range=[earliest_week_start, range_end]
+            ).prefetch_related('routine__exercises')
+        )
+        all_logs = list(
+            ExerciseLog.objects.filter(
+                user=user, date__range=[earliest_week_start, range_end], completed=True
+            ).select_related('exercise')
+        )
 
         result = []
         for i in range(weeks_back - 1, -1, -1):
@@ -174,25 +192,17 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
             iso = week_start.isocalendar()
             year, week_num = iso[0], iso[1]
 
-            try:
-                target_obj = TopDownWeeklyTarget.objects.get(user=user, year=year, week=week_num)
-                weekly_target = target_obj.target_points
-            except TopDownWeeklyTarget.DoesNotExist:
-                weekly_target = 0
+            weekly_target = all_targets.get((year, week_num), 0)
 
-            plans = RoutinePlan.objects.filter(
-                user=user, date__range=[week_start, week_end]
-            ).prefetch_related('routine__exercises')
+            week_plans = [p for p in all_plans if week_start <= p.date <= week_end]
             planned_points = sum(
                 ex.training_points
-                for plan in plans
+                for plan in week_plans
                 for ex in plan.routine.exercises.all()
             )
 
-            logs = ExerciseLog.objects.filter(
-                user=user, date__range=[week_start, week_end], completed=True
-            ).select_related('exercise')
-            completed_points = sum(log.exercise.training_points for log in logs)
+            week_logs = [l for l in all_logs if week_start <= l.date <= week_end]
+            completed_points = sum(log.exercise.training_points for log in week_logs)
 
             achievement = round(completed_points / weekly_target * 100, 1) if weekly_target > 0 else 0
 

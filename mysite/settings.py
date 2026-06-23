@@ -108,6 +108,9 @@ DATABASES = {
         'OPTIONS': {
             'sslmode': os.environ.get("PGSSLMODE", "prefer"),
         },
+        # Reuse DB connections for 60s instead of reconnecting on every request.
+        # Eliminates the SSL handshake cost (~100ms) to Railway on each request.
+        'CONN_MAX_AGE': 60,
     }
 }
 
