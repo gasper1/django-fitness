@@ -7,7 +7,7 @@ from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget, WeeklyAnalysis
-from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
+from .serializers import ExerciseSerializer, RoutineListSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
 
 # Replaced ExerciseListCreate with ExerciseViewSet
 class ExerciseViewSet(viewsets.ModelViewSet):
@@ -25,11 +25,18 @@ class RoutineViewSet(viewsets.ModelViewSet):
     API endpoint that allows routines to be viewed or edited.
     Provides list, create, retrieve, update, partial_update, destroy actions.
     """
-    # queryset = Routine.objects.all().prefetch_related('exercises') # Optimize query by prefetching exercises
-    queryset = Routine.objects.all()
-    serializer_class = RoutineSerializer
-    # Add permission classes as needed, e.g., permissions.IsAuthenticated
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        # Detail/write actions need exercises; list only serves id+name so skip the prefetch.
+        if self.action in ('retrieve', 'update', 'partial_update', 'destroy'):
+            return Routine.objects.prefetch_related('exercises')
+        return Routine.objects.all()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return RoutineListSerializer
+        return RoutineSerializer
 
 
 class RoutinePlanViewSet(viewsets.ModelViewSet):

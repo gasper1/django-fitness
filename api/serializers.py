@@ -9,6 +9,13 @@ class ExerciseSerializer(serializers.ModelSerializer):
         read_only_fields = ['id'] # ID is typically read-only
 
 
+class RoutineListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for the routine list endpoint — id and name only."""
+    class Meta:
+        model = Routine
+        fields = ['id', 'name']
+
+
 class RoutineSerializer(serializers.ModelSerializer):
     """Serializer for the Routine model."""
     # Use PrimaryKeyRelatedField for writing, allowing updates with exercise IDs
