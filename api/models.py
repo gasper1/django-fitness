@@ -116,6 +116,24 @@ class ExerciseLog(models.Model):
         return f"{self.user.username} - {self.exercise.name} on {self.date}: {status}"
 
 
+class ExerciseSet(models.Model):
+    """Individual set record attached to an ExerciseLog entry."""
+    exercise_log = models.ForeignKey(ExerciseLog, on_delete=models.CASCADE, related_name='sets')
+    set_number = models.PositiveSmallIntegerField()
+    reps = models.PositiveSmallIntegerField()
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    completed = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['set_number']
+        unique_together = [['exercise_log', 'set_number']]
+        verbose_name = "Exercise Set"
+        verbose_name_plural = "Exercise Sets"
+
+    def __str__(self):
+        return f"Set {self.set_number} for log {self.exercise_log_id}"
+
+
 class TopDownWeeklyTarget(models.Model):
     """Represents the user's top-down weekly training point target."""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

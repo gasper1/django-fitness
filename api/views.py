@@ -3,11 +3,13 @@ import json
 import os
 from datetime import date, datetime, timedelta
 
+from django.db.models import F, Max
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget, WeeklyAnalysis
-from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, TopDownWeeklyTargetSerializer
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog, ExerciseSet, TopDownWeeklyTarget, WeeklyAnalysis
+from .serializers import ExerciseSerializer, RoutineSerializer, RoutinePlanSerializer, ExerciseLogSerializer, ExerciseSetSerializer, TopDownWeeklyTargetSerializer
 
 # Replaced ExerciseListCreate with ExerciseViewSet
 class ExerciseViewSet(viewsets.ModelViewSet):
@@ -86,7 +88,7 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
         optionally filtered by date range.
         """
         user = self.request.user
-        queryset = ExerciseLog.objects.filter(user=user).select_related('exercise')
+        queryset = ExerciseLog.objects.filter(user=user).select_related('exercise').prefetch_related('sets')
 
         # Get date range parameters from the request query string
         start_date = self.request.query_params.get('start_date', None)
@@ -115,6 +117,34 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
     # based on a date and completed status, especially for the checkbox interaction.
     # For now, the standard ModelViewSet POST/PUT/PATCH should work for individual logs.
     # The serializer's create method uses get_or_create, so POST can function as an upsert.
+
+
+class ExerciseSetViewSet(viewsets.ModelViewSet):
+    """CRUD for individual sets within an ExerciseLog. set_number is backend-assigned."""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ExerciseSetSerializer
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        return ExerciseSet.objects.filter(exercise_log__user=self.request.user).order_by('set_number')
+
+    def perform_create(self, serializer):
+        exercise_log = serializer.validated_data['exercise_log']
+        if exercise_log.user != self.request.user:
+            raise PermissionDenied()
+        max_num = ExerciseSet.objects.filter(exercise_log=exercise_log).aggregate(
+            m=Max('set_number')
+        )['m'] or 0
+        serializer.save(set_number=max_num + 1)
+
+    def perform_destroy(self, instance):
+        exercise_log = instance.exercise_log
+        deleted_num = instance.set_number
+        instance.delete()
+        ExerciseSet.objects.filter(
+            exercise_log=exercise_log,
+            set_number__gt=deleted_num
+        ).update(set_number=F('set_number') - 1)
 
 
 class TopDownWeeklyTargetViewSet(viewsets.ModelViewSet):

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Exercise, Routine, RoutinePlan, ExerciseLog, TopDownWeeklyTarget
+from .models import Exercise, Routine, RoutinePlan, ExerciseLog, ExerciseSet, TopDownWeeklyTarget
 
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for the Exercise model."""
@@ -58,16 +58,25 @@ class RoutinePlanSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class ExerciseSetSerializer(serializers.ModelSerializer):
+    """Serializer for individual sets within an ExerciseLog."""
+    class Meta:
+        model = ExerciseSet
+        fields = ['id', 'exercise_log', 'set_number', 'reps', 'weight_kg', 'completed']
+        read_only_fields = ['id', 'set_number']
+
+
 class ExerciseLogSerializer(serializers.ModelSerializer):
     """Serializer for the ExerciseLog model."""
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     exercise = serializers.PrimaryKeyRelatedField(queryset=Exercise.objects.all())
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+    sets = ExerciseSetSerializer(many=True, read_only=True)
 
     class Meta:
         model = ExerciseLog
-        fields = ['id', 'user', 'exercise', 'exercise_name', 'date', 'completed']
-        read_only_fields = ['id', 'user', 'exercise_name']
+        fields = ['id', 'user', 'exercise', 'exercise_name', 'date', 'completed', 'sets']
+        read_only_fields = ['id', 'user', 'exercise_name', 'sets']
 
     def create(self, validated_data):
         # Automatically set the user to the request user
