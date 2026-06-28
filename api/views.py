@@ -1,6 +1,7 @@
 import anthropic
 import json
 import os
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from django.db.models import F, Max
@@ -226,21 +227,41 @@ class WeeklyStatsViewSet(viewsets.ViewSet):
             weekly_target = all_targets.get((year, week_num), 0)
 
             week_plans = [p for p in all_plans if week_start <= p.date <= week_end]
-            planned_points = sum(
-                ex.training_points
-                for plan in week_plans
-                for ex in plan.routine.exercises.all()
-            )
+
+            # Single pass: build planned_points total + per-exercise occurrence counts
+            planned_occ: Counter = Counter()
+            planned_points = 0
+            for plan in week_plans:
+                for ex in plan.routine.exercises.all():
+                    planned_occ[ex.id] += 1
+                    planned_points += ex.training_points
 
             week_logs = [l for l in all_logs if week_start <= l.date <= week_end]
-            completed_points = sum(log.exercise.training_points for log in week_logs)
 
+            # Count how many times each exercise was completed this week
+            completed_occ: Counter = Counter()
+            exercise_pts: dict = {}
+            for log in week_logs:
+                completed_occ[log.exercise_id] += 1
+                exercise_pts[log.exercise_id] = log.exercise.training_points
+
+            completed_planned = 0
+            completed_unplanned = 0
+            for ex_id, comp_count in completed_occ.items():
+                pts = exercise_pts[ex_id]
+                plan_count = planned_occ.get(ex_id, 0)
+                completed_planned += min(plan_count, comp_count) * pts
+                completed_unplanned += max(0, comp_count - plan_count) * pts
+
+            completed_points = completed_planned + completed_unplanned
             achievement = round(completed_points / weekly_target * 100, 1) if weekly_target > 0 else 0
 
             result.append({
                 'week': f"W{week_num:02d} {year}",
                 'planned': planned_points,
                 'completed': completed_points,
+                'completedPlanned': completed_planned,
+                'completedUnplanned': completed_unplanned,
                 'weeklyTarget': weekly_target,
                 'achievementPercentage': achievement,
             })
